@@ -7,6 +7,7 @@
 //
 
 #import "AppDelegate.h"
+#import <TAESDK/TaeSDK.h>
 
 @interface AppDelegate ()
 
@@ -17,6 +18,17 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
+    
+    //sdk初始化
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[TaeSDK sharedInstance] asyncInit:^{
+            NSLog(@"初始化成功");
+        } failedCallback:^(NSError *error) {
+            NSLog(@"初始化失败:%@",error);
+        }];
+    });
+
     return YES;
 }
 
@@ -43,6 +55,19 @@
     // Saves changes in the application's managed object context before the application terminates.
     [self saveContext];
 }
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 80000
+- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<NSString *,id> *)options {
+    
+    return YES;
+}
+#else
+
+- (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url {
+    
+    return YES;
+}
+#endif
 
 #pragma mark - Core Data stack
 

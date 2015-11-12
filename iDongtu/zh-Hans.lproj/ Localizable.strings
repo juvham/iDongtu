@@ -1,0 +1,15 @@
+/* 
+   Localizable.strings
+  SamplePhotosApp
+
+  Created by 迅牛 on 15/11/10.
+
+*/
+
+"Albums" = "相册";
+"Album Name" = "相册名称";
+"Cancel" = "取消";
+"Create" = "创建";
+"All Photos" = "所有照片";
+"Smart Albums" = "智能相册";
+"Photos" = "相册";
