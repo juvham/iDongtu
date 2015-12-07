@@ -14,4 +14,6 @@
 
 +(instancetype)sharedAssetHelper;
 
++ (PHCachingImageManager *)sharedAssetmanager;
+
 @end

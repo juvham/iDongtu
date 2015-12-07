@@ -36,7 +36,6 @@
 }
 + (BOOL)gifExistWithGIFURL:(NSURL *)gifUrl {
      
-    BOOL isDirectory;
     BOOL isExist = NO;
     // 判断文件夹是否存在，如果不存在，则创建
 

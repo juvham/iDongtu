@@ -73,7 +73,7 @@
     __block NSURL *gifURL;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         
-        gifURL = [self createGIFforTimePoints:timePoints fromURL:videoAsset.URL fileProperties:fileProperties frameProperties:frameProperties frameCount:frameCount gifSize:optimalSize];
+        gifURL = [self createGIFforTimePoints:timePoints fromURL:videoAsset.URL fileProperties:fileProperties frameProperties:frameProperties frameCount:frameCount gifSize:CGSizeMake(optimalSize/10 * videoWidth, optimalSize/10*videoHeight)];
         
         dispatch_group_leave(gifQueue);
     });

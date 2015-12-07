@@ -9,10 +9,16 @@
 @import UIKit;
 @import Photos;
 
+#import "AAPLAssetGridViewController.h"
 
 @interface AAPLAssetViewController : UIViewController
 
++ (instancetype )photoViewControllerForPageIndex:(NSUInteger)pageIndex collectionDelegate:(AAPLAssetGridViewController *)collectionDelegate;
+
+@property (nonatomic ,assign) NSUInteger pageIndex;
+
 @property (nonatomic, strong) PHAsset *asset;
-@property (nonatomic, strong) PHAssetCollection *assetCollection;
+@property (nonatomic, assign) AAPLAssetGridViewController *collectionDelegate;
+@property (nonatomic, assign) UIViewController *toolBarDelegate;
 
 @end

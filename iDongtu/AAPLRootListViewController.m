@@ -10,15 +10,19 @@
 
 #import "AAPLAssetGridViewController.h"
 #import "GifAssetHelper.h"
+#import "AssetGroupTableViewCell.h"
+
 @import Photos;
 
 
 @interface AAPLRootListViewController () <PHPhotoLibraryChangeObserver>
 {
     BOOL isCreate;
+    BOOL notAuthord;
 }
 @property (nonatomic, strong) NSArray *sectionFetchResults;
 @property (nonatomic, strong) NSArray *sectionLocalizedTitles;
+
 @end
 
 @implementation AAPLRootListViewController
@@ -31,6 +35,30 @@ static NSString * const CollectionSegue = @"showCollection";
 
 - (void)awakeFromNib {
     // Create a PHFetchResult object for each section in the table view.
+    
+    if (PHAuthorizationStatusAuthorized == [PHPhotoLibrary authorizationStatus]) {
+        
+        [self initPhotoData];
+    } else {
+        
+        [PHPhotoLibrary requestAuthorization:^(PHAuthorizationStatus status) {
+            
+            if (status == PHAuthorizationStatusAuthorized ) {
+            
+                [self initPhotoData];
+            } else {
+                
+                notAuthord = YES;
+            
+            }
+        }];
+    }
+
+    
+}
+
+- (void)initPhotoData {
+    
     PHFetchOptions *allPhotosOptions = [[PHFetchOptions alloc] init];
     allPhotosOptions.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"creationDate" ascending:YES]];
     PHFetchResult *allPhotos = [PHAsset fetchAssetsWithOptions:allPhotosOptions];
@@ -52,12 +80,11 @@ static NSString * const CollectionSegue = @"showCollection";
     
     __block BOOL isExist = NO;
     
-    
     [fetchResult enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         
         PHCollection *collection = (PHCollection *)obj;
         
-        if ([collection.localizedTitle isEqualToString:@"iDongtu"]) {
+        if ([collection.localizedTitle isEqualToString:NSLocalizedString(@"iDongtu", nil)]) {
             
             isExist = YES;
             
@@ -77,7 +104,7 @@ static NSString * const CollectionSegue = @"showCollection";
         
         // Create a new album with the title entered.
         [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
-            [PHAssetCollectionChangeRequest creationRequestForAssetCollectionWithTitle:@"iDongtu"];
+            [PHAssetCollectionChangeRequest creationRequestForAssetCollectionWithTitle:NSLocalizedString(@"iDongtu", nil)];
         } completionHandler:^(BOOL success, NSError *error) {
             if (!success) {
                 NSLog(@"Error creating album: %@", error);
@@ -100,6 +127,28 @@ static NSString * const CollectionSegue = @"showCollection";
 - (void)viewDidLoad {
     
     [super viewDidLoad];
+    
+    self.tableView.estimatedRowHeight = 70;
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
+    
+
+    if (notAuthord ) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"提示" message:@"无相册访问权限\n请在设置中修改访问权限" preferredStyle:(UIAlertControllerStyleAlert)];
+        [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:(UIAlertActionStyleCancel) handler:^(UIAlertAction * _Nonnull action) {
+            
+        }]];
+        
+        [alert addAction:[UIAlertAction actionWithTitle:@"确定" style:(UIAlertActionStyleDestructive) handler:^(UIAlertAction * _Nonnull action) {
+            
+                                [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"prefs:root=com.juvham.iDongtu"]];
+        }]];
+        
+        [self presentViewController:alert animated:YES completion:^{
+            
+        }];
+
+    }
+    
     
 }
 #pragma mark - UIViewController
@@ -130,8 +179,7 @@ static NSString * const CollectionSegue = @"showCollection";
     UITableViewCell *cell = sender;
     
     // Set the title of the AAPLAssetGridViewController.
-    
-    
+
     PHFetchResult *fetchResult;
     // Get the PHFetchResult for the selected section.
     indexPath = [self.tableView indexPathForCell:cell];
@@ -162,6 +210,11 @@ static NSString * const CollectionSegue = @"showCollection";
     return self.sectionFetchResults.count;
 }
 
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    
+    return 74;
+}
+
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     NSInteger numberOfRows = 0;
     
@@ -177,17 +230,34 @@ static NSString * const CollectionSegue = @"showCollection";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    UITableViewCell *cell = nil;
+    AssetGroupTableViewCell *cell = nil;
     
     if (indexPath.section == 0) {
         cell = [tableView dequeueReusableCellWithIdentifier:AllPhotosReuseIdentifier forIndexPath:indexPath];
-        cell.textLabel.text = NSLocalizedString(@"All Photos", nil);
-    } else {
-        PHFetchResult *fetchResult = self.sectionFetchResults[indexPath.section];
-        PHCollection *collection = fetchResult[indexPath.row];
+         PHFetchResult *fetchResult = self.sectionFetchResults[indexPath.section];
+        [cell setData:fetchResult];
+        cell.nameLabel.text = NSLocalizedString(@"All Photos", nil);
+    } else  {
         
         cell = [tableView dequeueReusableCellWithIdentifier:CollectionCellReuseIdentifier forIndexPath:indexPath];
-        cell.textLabel.text = collection.localizedTitle;
+        PHFetchResult *fetchResult = self.sectionFetchResults[indexPath.section];
+        PHCollection *collection = fetchResult[indexPath.row];
+        cell.nameLabel.text = collection.localizedTitle;
+        
+        
+        PHFetchResult *assetsFetchResult = [PHAsset fetchAssetsInAssetCollection:(PHAssetCollection *)collection options:nil];
+//        if (indexPath.section == 1) {
+//            
+//            assetsFetchResult = self.smartFetchResults[indexPath.row];
+//            
+//            
+//        } else if (indexPath.section ==2) {
+//            
+//             assetsFetchResult = self.userCollectionFetchResults[indexPath.row];
+//        }
+        
+         [cell setData:assetsFetchResult];
+        
     }
     
     return cell;
@@ -195,6 +265,11 @@ static NSString * const CollectionSegue = @"showCollection";
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     return self.sectionLocalizedTitles[section];
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 
 #pragma mark - PHPhotoLibraryChangeObserver
@@ -218,24 +293,23 @@ static NSString * const CollectionSegue = @"showCollection";
                 [updatedSectionFetchResults replaceObjectAtIndex:index withObject:fetctResult];
                 reloadRequired = YES;
                 
-                if (index == 2 && isCreate) {
+                if (index == 2) {
                     
-                    [fetctResult enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                    [fetctResult enumerateObjectsUsingBlock:^(PHAssetCollection * collection, NSUInteger idx, BOOL * _Nonnull stop) {
                         
-                        
-                        PHCollection *collection = (PHCollection *)obj;
-                        
-                        if ([collection.localizedTitle isEqualToString:@"iDongtu"]) {
+                        if (isCreate) {
                             
-                            
-                            if ([collection isKindOfClass:[PHAssetCollection class]]) {
+                            if ([collection.localizedTitle isEqualToString:@"iDongtu"]) {
                                 
-                                PHAssetCollection *assetCollection = (PHAssetCollection *)collection;
-                                [GifAssetHelper sharedAssetHelper].assetCollection = assetCollection;
-                                isCreate = NO;
+                                if ([collection isKindOfClass:[PHAssetCollection class]]) {
+                                    
+                                    PHAssetCollection *assetCollection = (PHAssetCollection *)collection;
+                                    [GifAssetHelper sharedAssetHelper].assetCollection = assetCollection;
+                                    isCreate = NO;
+                                }
                             }
                         }
-                        
+
                     }];
                 }
             }
@@ -250,35 +324,35 @@ static NSString * const CollectionSegue = @"showCollection";
 }
 
 #pragma mark - Actions
-
-- (IBAction)handleAddButtonItem:(id)sender {
-    // Prompt user from new album title.
-    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"New Album", nil) message:nil preferredStyle:UIAlertControllerStyleAlert];
-    
-    [alertController addTextFieldWithConfigurationHandler:^(UITextField *textField) {
-        textField.placeholder = NSLocalizedString(@"Album Name", nil);
-    }];
-    
-    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Cancel", nil) style:UIAlertActionStyleCancel handler:NULL]];
-    
-    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Create", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        UITextField *textField = alertController.textFields.firstObject;
-        NSString *title = textField.text;
-        if (title.length == 0) {
-            return;
-        }
-        
-        // Create a new album with the title entered.
-        [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
-            [PHAssetCollectionChangeRequest creationRequestForAssetCollectionWithTitle:title];
-        } completionHandler:^(BOOL success, NSError *error) {
-            if (!success) {
-                NSLog(@"Error creating album: %@", error);
-            }
-        }];
-    }]];
-    
-    [self presentViewController:alertController animated:YES completion:NULL];
-}
+//
+//- (IBAction)handleAddButtonItem:(id)sender {
+//    // Prompt user from new album title.
+//    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"New Album", nil) message:nil preferredStyle:UIAlertControllerStyleAlert];
+//    
+//    [alertController addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+//        textField.placeholder = NSLocalizedString(@"Album Name", nil);
+//    }];
+//    
+//    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Cancel", nil) style:UIAlertActionStyleCancel handler:NULL]];
+//    
+//    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Create", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+//        UITextField *textField = alertController.textFields.firstObject;
+//        NSString *title = textField.text;
+//        if (title.length == 0) {
+//            return;
+//        }
+//        
+//        // Create a new album with the title entered.
+//        [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+//            [PHAssetCollectionChangeRequest creationRequestForAssetCollectionWithTitle:title];
+//        } completionHandler:^(BOOL success, NSError *error) {
+//            if (!success) {
+//                NSLog(@"Error creating album: %@", error);
+//            }
+//        }];
+//    }]];
+//    
+//    [self presentViewController:alertController animated:YES completion:NULL];
+//}
 
 @end

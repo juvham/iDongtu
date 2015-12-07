@@ -6,20 +6,27 @@
  A view controller displaying a grid of assets.
  */
 
-#import "AAPLAssetGridViewController.h"
+#define ScreenHeight    [UIScreen mainScreen].bounds.size.height
+#define ScreenWidth    [UIScreen mainScreen].bounds.size.width
 
+#import "AAPLAssetGridViewController.h"
+#import "LDViewControllerTransitioner.h"
 #import "AAPLGridViewCell.h"
 #import "AAPLAssetViewController.h"
 #import "NSIndexSet+Convenience.h"
+#import "AssetPageViewController.h"
 #import "UICollectionView+Convenience.h"
+#import "PageFullScreen.h"
 
 @import PhotosUI;
 
  NSString *const assetGridViewController = @"assetGridViewController";
 
-@interface AAPLAssetGridViewController () <PHPhotoLibraryChangeObserver>
+@interface AAPLAssetGridViewController () <PHPhotoLibraryChangeObserver ,UICollectionViewDelegateFlowLayout ,UIPageViewControllerDataSource, UIPageViewControllerDelegate>
+@property (nonatomic, strong) LDNavigationControllerDelegate *naviTransDetegate;
 @property (nonatomic, strong) IBOutlet UIBarButtonItem *addButton;
 @property (nonatomic, strong) PHCachingImageManager *imageManager;
+@property (nonatomic, strong) UILabel *noDataView;
 @property CGRect previousPreheatRect;
 @end
 
@@ -34,10 +41,50 @@ static CGSize AssetGridThumbnailSize;
     [self resetCachedAssets];
     
     [[PHPhotoLibrary sharedPhotoLibrary] registerChangeObserver:self];
+    
+    [self addObserver:self forKeyPath:@"currentIndex" options:(NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld) context:NULL];
+    
+}
+
+- (void)viewDidLoad {
+    
+    [super viewDidLoad];
+    
+    self.navigationController.delegate = [self naviTransDetegate];
+    
+    
+}
+
+- (LDNavigationControllerDelegate *)naviTransDetegate {
+    
+    if (_naviTransDetegate == nil) {
+        
+        _naviTransDetegate = [[LDNavigationControllerDelegate alloc] initWithNavigationController:self.navigationController];
+        
+    }
+    
+    return _naviTransDetegate;
+}
+
+- (UILabel *)noDataView {
+    
+    if (_noDataView == nil) {
+    
+        _noDataView = [[UILabel alloc] init];
+        _noDataView.text = @"无照片或视频";
+        _noDataView.textColor = [UIColor colorWithWhite:0.5 alpha:1];
+        _noDataView.font = [UIFont systemFontOfSize:28];
+        _noDataView.textAlignment = NSTextAlignmentCenter;
+    
+    }
+    return _noDataView;
 }
 
 - (void)dealloc {
     [[PHPhotoLibrary sharedPhotoLibrary] unregisterChangeObserver:self];
+    
+    [self removeObserver:self forKeyPath:@"currentIndex"];
+    
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -61,16 +108,71 @@ static CGSize AssetGridThumbnailSize;
     
     // Begin caching assets in and around collection view's visible rect.
     [self updateCachedAssets];
+    
+    [self removeObserver:self forKeyPath:@"currentIndex"];
+
+}
+
+- (void)viewDidDisappear:(BOOL)animated {
+    
+    [super viewDidDisappear:animated];
+
+    [self addObserver:self forKeyPath:@"currentIndex" options:(NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld) context:NULL];
 }
 
 - (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
     // Configure the destination AAPLAssetViewController.
-    if ([segue.destinationViewController isKindOfClass:[AAPLAssetViewController class]]) {
-        AAPLAssetViewController *assetViewController = segue.destinationViewController;
-        NSIndexPath *indexPath = [self.collectionView indexPathForCell:sender];
-        assetViewController.asset = self.assetsFetchResults[indexPath.item];
-        assetViewController.assetCollection = self.assetCollection;
+    if ([segue.destinationViewController isKindOfClass:[UIPageViewController class]]) {
+
+        UIPageViewController *page = (UIPageViewController *)segue.destinationViewController;
+        page.delegate = self;
+        page.dataSource = self;
+        
+        if ([sender isKindOfClass:[UICollectionViewCell class]]) {
+            
+            NSIndexPath *indexpath = [self.collectionView indexPathForCell:sender];
+            
+            AAPLGridViewCell *cell = (AAPLGridViewCell *)sender;
+            
+            CGRect targetFrame = [self.collectionView convertRect:cell.frame toView:self.view.window];
+            
+            self.naviTransDetegate.targetRect = targetFrame;
+            
+            AAPLAssetViewController *assetViewController = [AAPLAssetViewController photoViewControllerForPageIndex:indexpath.item collectionDelegate:self];
+            assetViewController.toolBarDelegate = page;
+            
+            self.naviTransDetegate.animationCell = cell;
+            
+            [PageFullScreen setFullScreenMode:NO];
+            
+            NSArray *array = @[assetViewController];
+            [page setViewControllers:array direction:UIPageViewControllerNavigationDirectionForward animated:NO completion:NULL];
+        }
+        
     }
+}
+
+- (UIViewController *)pageViewController:(AssetPageViewController *)pvc viewControllerBeforeViewController:(AAPLAssetViewController *)vc
+{
+    NSUInteger index = self.currentIndex;
+    AAPLAssetViewController *assetViewController = [AAPLAssetViewController photoViewControllerForPageIndex:(index - 1) collectionDelegate:self];
+    assetViewController.toolBarDelegate = pvc;
+    
+    
+    return assetViewController;
+}
+
+- (UIViewController *)pageViewController:(AssetPageViewController *)pvc viewControllerAfterViewController:(AAPLAssetViewController *)vc
+{
+    NSUInteger index = self.currentIndex;
+    AAPLAssetViewController *assetViewController = [AAPLAssetViewController photoViewControllerForPageIndex:(index + 1) collectionDelegate:self];
+    assetViewController.toolBarDelegate = pvc;
+    
+    return assetViewController;
+}
+
+- (IBAction)unwindAssetSegue:(UIStoryboardSegue *)unwindSegue  {
+    
 }
 
 #pragma mark - PHPhotoLibraryChangeObserver
@@ -124,10 +226,52 @@ static CGSize AssetGridThumbnailSize;
     });
 }
 
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSString *,id> *)change context:(void *)context {
+    
+    if ([keyPath isEqualToString:@"currentIndex"]) {
+        
+        NSUInteger changenew = [change[@"new"] integerValue];
+        
+        if (changenew < self.assetsFetchResults.count) {
+            
+            NSIndexPath *indexPath = [NSIndexPath indexPathForItem:changenew inSection:0];
+            
+            [self.collectionView scrollToItemAtIndexPath:indexPath atScrollPosition:(UICollectionViewScrollPositionCenteredVertically) animated:NO];
+            
+            [self.collectionView layoutIfNeeded];
+            
+            AAPLGridViewCell *cell = (AAPLGridViewCell *)[self.collectionView cellForItemAtIndexPath:indexPath];
+            
+            CGRect targetFrame = [self.collectionView convertRect:cell.frame toView:[UIApplication sharedApplication].windows[[UIApplication sharedApplication].windows.count -1]];
+            targetFrame.origin.y +=  ScreenHeight > ScreenWidth ? 64 : 30;
+            //未显示在屏幕上坐标要加偏移量
+            self.naviTransDetegate.animationCell = cell;
+            self.naviTransDetegate.targetRect = targetFrame;
+        }
+    }
+    
+}
+
 #pragma mark - UICollectionViewDataSource
 
+- (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)collectionViewLayout sizeForItemAtIndexPath:(NSIndexPath *)indexPath {
+    
+    return  CGSizeMake(floorf((MIN(ScreenWidth, ScreenHeight) -5) / 4),floorf((MIN(ScreenWidth, ScreenHeight) -5) / 4));
+}
+
 - (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section {
-    return self.assetsFetchResults.count;
+    
+    NSInteger count = self.assetsFetchResults.count;
+    
+    if (count == 0) {
+        
+        self.collectionView.backgroundView = self.noDataView;
+    } else {
+        
+        self.collectionView.backgroundView = nil;
+    }
+    
+    return count;
 }
 
 - (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
@@ -289,6 +433,20 @@ static CGSize AssetGridThumbnailSize;
     }];
     
 //    [PHPhotoLibrary sharedPhotoLibrary]
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    
+    [self.view layoutIfNeeded];
+    
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext>  _Nonnull context) {
+        
+        
+        [self.view updateConstraints];
+        [self.view layoutIfNeeded];
+    } completion:^(id<UIViewControllerTransitionCoordinatorContext>  _Nonnull context) {
+        
+    }];
 }
 
 @end

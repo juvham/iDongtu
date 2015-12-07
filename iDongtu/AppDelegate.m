@@ -7,7 +7,6 @@
 //
 
 #import "AppDelegate.h"
-#import <TAESDK/TaeSDK.h>
 
 @interface AppDelegate ()
 
@@ -21,14 +20,6 @@
     
     //sdk初始化
     
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[TaeSDK sharedInstance] asyncInit:^{
-            NSLog(@"初始化成功");
-        } failedCallback:^(NSError *error) {
-            NSLog(@"初始化失败:%@",error);
-        }];
-    });
-
     return YES;
 }
 

@@ -11,6 +11,7 @@
 #import "NSGIF+livePhoto.h"
 #import "ShareViewController.h"
 #import "GifAssetHelper.h"
+#import "PageFullScreen.h"
 @import PhotosUI;
 
 @interface AAPLAssetViewController () <PHPhotoLibraryChangeObserver, PHLivePhotoViewDelegate>
@@ -37,6 +38,22 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
 
 #pragma mark - View Lifecycle Methods.
 
++ (instancetype)photoViewControllerForPageIndex:(NSUInteger)pageIndex collectionDelegate:(AAPLAssetGridViewController *)collectionDelegate {
+    
+    if (pageIndex < [collectionDelegate.assetsFetchResults count])
+    {
+        AAPLAssetViewController *viewController = [collectionDelegate.storyboard instantiateViewControllerWithIdentifier:@"AAPLAssetViewController"];
+    
+        viewController.view.frame = [UIScreen mainScreen].bounds;
+        viewController.pageIndex = pageIndex;
+        viewController.collectionDelegate = collectionDelegate;
+        viewController.asset = [collectionDelegate.assetsFetchResults objectAtIndex:pageIndex];
+        return viewController;
+    }
+    
+    return nil;
+    
+}
 - (void)dealloc {
     [[PHPhotoLibrary sharedPhotoLibrary] unregisterChangeObserver:self];
 }
@@ -48,6 +65,7 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
     
     self.livePhotoView.contentMode = UIViewContentModeScaleAspectFit;
     self.imageView.contentMode = UIViewContentModeScaleAspectFit;
+    self.view.backgroundColor = [UIColor clearColor];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -57,32 +75,49 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
     if (self.asset.mediaType == PHAssetMediaTypeVideo) {
         [self showPlaybackToolbar];
     } else {
+        
         [self showStaticToolbar];
     }
-    
     // Enable the edit button if the asset can be edited.
     BOOL isEditable = ([self.asset canPerformEditOperation:PHAssetEditOperationProperties] || [self.asset canPerformEditOperation:PHAssetEditOperationContent]);
     self.editButton.enabled = isEditable;
     
     // Enable the trash button if the asset can be deleted.
     BOOL isTrashable = NO;
-    if (self.assetCollection) {
-        isTrashable = [self.assetCollection canPerformEditOperation:PHCollectionEditOperationRemoveContent];
+    if (self.collectionDelegate.assetCollection) {
+        isTrashable = [self.collectionDelegate.assetCollection canPerformEditOperation:PHCollectionEditOperationRemoveContent];
     } else {
+        
         isTrashable = [self.asset canPerformEditOperation:PHAssetEditOperationDelete];
     }
     self.trashButton.enabled = isTrashable;
     
-    [self updateImage];
+    [self showNavigationItem];
     
+    [self updateImage];
+
     [self.view layoutIfNeeded];
 }
 
+- (void)viewDidAppear:(BOOL)animated {
+    
+    [super viewDidAppear:animated];
+    
+    self.collectionDelegate.currentIndex = self.pageIndex;
+}
 #pragma mark - View & Toolbar setup methods.
+
+- (void)showNavigationItem {
+    
+    self.toolBarDelegate.navigationItem.leftBarButtonItems = self.navigationItem.leftBarButtonItems;
+    self.toolBarDelegate.navigationItem.rightBarButtonItems = self.navigationItem.rightBarButtonItems;
+    self.toolBarDelegate.navigationItem.titleView = self.navigationItem.titleView;
+}
 
 - (void)showLivePhotoView {
     self.livePhotoView.hidden = NO;
     self.imageView.hidden = YES;
+   
 }
 
 - (void)showStaticPhotoView {
@@ -91,11 +126,14 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
 }
 
 - (void)showPlaybackToolbar {
-    self.toolbarItems = @[self.playButton, self.space, self.trashButton];
+    
+    [self.toolBarDelegate setToolbarItems:@[self.playButton, self.space, self.trashButton] animated:YES];
+  
 }
 
 - (void)showStaticToolbar {
-    self.toolbarItems = @[self.space, self.trashButton];
+        [self.toolBarDelegate setToolbarItems:@[self.space, self.trashButton] animated:YES];
+    
 }
 
 - (CGSize)targetSize {
@@ -113,6 +151,7 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
     BOOL assetHasLivePhotoSubType = (self.asset.mediaSubtypes & PHAssetMediaSubtypePhotoLive);
     if (assetHasLivePhotoSubType) {
         [self updateLiveImage];
+    
     }
     else {
         [self updateStaticImage];
@@ -134,6 +173,8 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
             weakSelf.progressView.progress = progress;
         });
     };
+    
+    self.editButton.enabled = YES;
     
     // Request the live photo for the asset from the default PHImageManager.
     [[PHImageManager defaultManager] requestLivePhotoForAsset:self.asset targetSize:[self targetSize] contentMode:PHImageContentModeAspectFit options:livePhotoOptions resultHandler:^(PHLivePhoto * _Nullable livePhoto, NSDictionary * _Nullable info) {
@@ -182,6 +223,13 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
             weakSelf.progressView.progress = progress;
         });
     };
+    if (self.asset.mediaType == PHAssetMediaTypeVideo) {
+        
+        self.editButton.enabled = YES;
+    } else {
+        
+        self.editButton.enabled = NO;
+    }
     
     [[PHImageManager defaultManager] requestImageForAsset:self.asset targetSize:[self targetSize] contentMode:PHImageContentModeAspectFit options:options resultHandler:^(UIImage *result, NSDictionary *info) {
         // Hide the progress view now the request has completed.
@@ -243,12 +291,32 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
         [[PHImageManager defaultManager] requestAVAssetForVideo:self.asset options:nil resultHandler:^(AVAsset *avAsset, AVAudioMix *audioMix, NSDictionary *info) {
             
             AVURLAsset *urlAsset = (AVURLAsset *)avAsset;
-            [NSGIF createGIFfromURL:urlAsset.URL withFrameCount:30 delayTime:2/30.0 loopCount:0 gifSize:GIFSizeVeryLow completion:^(NSURL *GifURL) {
+            
+            if ([avAsset isKindOfClass:[AVURLAsset class]]) {
                 
-                [weakSelf performSegueWithIdentifier:shareViewControllerSegueID sender:GifURL];
+                [NSGIF createGIFfromURL:urlAsset.URL withFrameCount:60 delayTime:3/30.0 loopCount:0 gifSize:(GIFSizeVeryLow) completion:^(NSURL *GifURL) {
+                    
+                    
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [weakSelf performSegueWithIdentifier:shareViewControllerSegueID sender:GifURL];
+                        
+                        [weakSelf writeToAssetCollection:GifURL];
+                    });
+                    
+                }];
+            } else {
                 
-                [weakSelf writeToAssetCollection:GifURL];
-            }];  
+                dispatch_async(dispatch_get_main_queue(), ^{
+                     weakSelf.parentViewController.navigationItem.prompt = @"慢动作视屏无法导出";
+                });
+               
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    weakSelf.parentViewController.navigationItem.prompt = nil;
+                    
+                });
+            }
+            //
+
    
         }];
 
@@ -256,7 +324,7 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
         
         if (subtype == PHAssetMediaSubtypePhotoLive) {
             
-            [NSGIF createGIFfromLivePhoto:self.livePhotoView.livePhoto framesPerSecond:20 completion:^(NSURL *GifURL) {
+            [NSGIF createGIFfromLivePhoto:self.livePhotoView.livePhoto framesPerSecond:30 completion:^(NSURL *GifURL) {
             
                 [weakSelf performSegueWithIdentifier:shareViewControllerSegueID sender:GifURL];
                 
@@ -311,14 +379,14 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
         }
     };
     
-    if (self.assetCollection) {
+    if (self.collectionDelegate.assetsFetchResults) {
         // Remove asset from album
-        [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
-            PHAssetCollectionChangeRequest *changeRequest = [PHAssetCollectionChangeRequest changeRequestForAssetCollection:weakSelf.assetCollection];
-            [changeRequest removeAssets:@[weakSelf.asset]];
-        } completionHandler:completionHandler];
+//        [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+//            PHAssetCollectionChangeRequest *changeRequest = [PHAssetCollectionChangeRequest changeRequestForAssetCollection:weakSelf.collectionDelegate.assetCollection];
+//            [changeRequest removeAssets:@[weakSelf.asset]];
+//        } completionHandler:completionHandler];
         
-    } else {
+//    } else {
         // Delete asset from library
         [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
             [PHAssetChangeRequest deleteAssets:@[weakSelf.asset]];

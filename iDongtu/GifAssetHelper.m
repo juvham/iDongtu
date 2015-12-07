@@ -21,5 +21,18 @@
     return _sharedHelper;
 }
 
++ (PHCachingImageManager *)sharedAssetmanager {
+    
+    static PHCachingImageManager *_sharedManager;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        
+        _sharedManager = [[PHCachingImageManager alloc] init];
+    });
+    
+    return _sharedManager;
+    
+}
+
 
 @end

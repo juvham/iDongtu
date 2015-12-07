@@ -22,19 +22,22 @@
     float videoWidth = [[[asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] naturalSize].width;
     float videoHeight = [[[asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] naturalSize].height;
     
-    GIFSize optimalSize = GIFSizeMedium;
-    if (videoWidth >= 1200 || videoHeight >= 1200)
-        optimalSize = GIFSizeVeryLow;
-    else if (videoWidth >= 800 || videoHeight >= 800)
-        optimalSize = GIFSizeLow;
-    else if (videoWidth >= 400 || videoHeight >= 400)
-        optimalSize = GIFSizeMedium;
-    else if (videoWidth < 400|| videoHeight < 400)
-        optimalSize = GIFSizeHigh;
+   
+//    if (videoWidth >= 1200 || videoHeight >= 1200)
+//        optimalSize = GIFSizeVeryLow;
+//    else if (videoWidth >= 800 || videoHeight >= 800)
+//        optimalSize = GIFSizeLow;
+//    else if (videoWidth >= 400 || videoHeight >= 400)
+//        optimalSize = GIFSizeMedium;
+//    else if (videoWidth < 400|| videoHeight < 400)
+//        optimalSize = GIFSizeHigh;
+    
+    GIFSize optimalSize =  MIN(400/videoHeight*10.0, 400/videoWidth*10.0);
+    
     float videoLength = (float)asset.duration.value/asset.duration.timescale;
     
     NSDictionary *fileProperties = [self filePropertiesWithLoopCount:loopCount];
-    NSDictionary *frameProperties = [self framePropertiesWithDelayTime:1/30.0];
+    NSDictionary *frameProperties = [self framePropertiesWithDelayTime:2/30.0];
     
     int frameCount = videoLength*framePerSecond;
     
@@ -56,7 +59,7 @@
     __block NSURL *gifURL;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         
-        gifURL = [self createGIFforTimePoints:timePoints fromURL:videoURL fileProperties:fileProperties frameProperties:frameProperties frameCount:frameCount gifSize:optimalSize];
+        gifURL = [self createGIFforTimePoints:timePoints fromURL:videoURL fileProperties:fileProperties frameProperties:frameProperties frameCount:frameCount gifSize:CGSizeMake(optimalSize/10 * videoWidth, optimalSize/10*videoHeight)];
         
         dispatch_group_leave(gifQueue);
     });
@@ -115,7 +118,7 @@
     __block NSURL *gifURL;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         
-        gifURL = [self createGIFforTimePoints:timePoints fromURL:videoURL fileProperties:fileProperties frameProperties:frameProperties frameCount:frameCount gifSize:optimalSize];
+        gifURL = [self createGIFforTimePoints:timePoints fromURL:videoURL fileProperties:fileProperties frameProperties:frameProperties frameCount:frameCount gifSize:CGSizeMake(optimalSize/10 * videoWidth, optimalSize/10*videoHeight)];
         
         dispatch_group_leave(gifQueue);
     });
@@ -133,18 +136,24 @@
     // The frames are spaced evenly over the video, and each has the same duration.
     // delayTime is the amount of time for each frame in the GIF.
     // loopCount is the number of times the GIF will repeat. Defaults to 0, which means repeat infinitely.
+    AVURLAsset *asset = [AVURLAsset assetWithURL:videoURL];
+    
+    float videoWidth = [[[asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] naturalSize].width;
+    float videoHeight = [[[asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] naturalSize].height;
+    
+    float scale = MAX([UIScreen mainScreen].bounds.size.width/videoWidth, [UIScreen mainScreen].bounds.size.height/videoHeight) *10;
     
     // Create properties dictionaries
     NSDictionary *fileProperties = [self filePropertiesWithLoopCount:loopCount];
     NSDictionary *frameProperties = [self framePropertiesWithDelayTime:delayTime];
     
-    AVURLAsset *asset = [AVURLAsset assetWithURL:videoURL];
-
     // Get the length of the video in seconds
     float videoLength = (float)asset.duration.value/asset.duration.timescale;
     
+//    float framePerSecond = delayTime/videoLength * 30;
+    
     // How far along the video track we want to move, in seconds.
-    float increment = (float)videoLength/frameCount;
+    float increment = (float)MAX(videoLength, 0) /frameCount;
     
     // Add frames to the buffer
     NSMutableArray *timePoints = [NSMutableArray array];
@@ -160,12 +169,14 @@
     
     __block NSURL *gifURL;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        
-        gifURL = [self createGIFforTimePoints:timePoints fromURL:videoURL fileProperties:fileProperties frameProperties:frameProperties frameCount:frameCount gifSize:gifSize];
+    
+        gifURL = [self createGIFforTimePoints:timePoints fromURL:videoURL fileProperties:fileProperties frameProperties:frameProperties frameCount:frameCount gifSize:CGSizeMake(scale/10 * videoWidth, scale/10*videoHeight)];
 
         dispatch_group_leave(gifQueue);
     });
     
+//    dispa
+//    
     dispatch_group_notify(gifQueue, dispatch_get_main_queue(), ^{
         // Return GIF URL
         completionBlock(gifURL);
@@ -175,7 +186,7 @@
 
 #pragma mark - Base methods
 
-+ (NSURL *)createGIFforTimePoints:(NSArray *)timePoints fromURL:(NSURL *)url fileProperties:(NSDictionary *)fileProperties frameProperties:(NSDictionary *)frameProperties frameCount:(int)frameCount gifSize:(GIFSize)gifSize{
++ (NSURL *)createGIFforTimePoints:(NSArray *)timePoints fromURL:(NSURL *)url fileProperties:(NSDictionary *)fileProperties frameProperties:(NSDictionary *)frameProperties frameCount:(int)frameCount gifSize:(CGSize)gifSize{
     
     NSURL *fileURL = [NSFileManager gifURLWithURL:url];
 
@@ -205,11 +216,29 @@
 
     AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:nil];
     AVAssetImageGenerator *generator = [AVAssetImageGenerator assetImageGeneratorWithAsset:asset];
+    
+//    generator.maximumSize = CGSizeMake(400, 400) ;
     generator.appliesPreferredTrackTransform = YES;
     
     CMTime tol = CMTimeMakeWithSeconds([tolerance floatValue], [timeInterval intValue]);
     generator.requestedTimeToleranceBefore = tol;
     generator.requestedTimeToleranceAfter = tol;
+    
+#if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
+    
+    generator.maximumSize = [UIScreen mainScreen].bounds.size;
+    
+    //        CGImageRef newImage = CGImageRetain(imageRef);
+    //        CGImageRelease(imageRef);
+    //        float scale = (float)gifSize/10.0;
+    //        if (scale != 1) {
+    //           imageRef = ImageWithScale(newImage, scale);
+    //        } else {
+    //
+    //        }
+    //        CGImageRelease(newImage);
+#elif TARGET_OS_MAC
+#endif
     
     NSError *error = nil;
     
@@ -217,25 +246,15 @@
         CGImageRef imageRef;
         
         imageRef = [generator copyCGImageAtTime:[time CMTimeValue] actualTime:nil error:&error];
-        #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
-        
-        CGImageRef newImage = CGImageRetain(imageRef);
-        CGImageRelease(imageRef);
-        float scale = (float)gifSize/10.0;
-        if (scale != 1) {
-           imageRef = ImageWithScale(newImage, scale);
-        } else {
 
-        }
-        CGImageRelease(newImage);
-        #elif TARGET_OS_MAC
-        #endif
-        
         CGImageDestinationAddImage(destination, imageRef,  (CFDictionaryRef)frameProperties);
         CGImageRelease(imageRef);
     }
+    
     CGImageDestinationSetProperties(destination, (CFDictionaryRef)fileProperties);
     // Finalize the GIF
+    
+    
     if (!CGImageDestinationFinalize(destination)) {
         NSLog(@"Failed to finalize GIF destination: %@", error);
         return nil;
@@ -260,14 +279,40 @@ CGImageRef ImageWithScale(CGImageRef imageRef, float scale) {
 //        .getBytesAtPosition = getAssetBytesCallback,
 //        .releaseInfo = releaseAssetCallback,
 //    };
+    
+//    NSDictionary *thumbnailInfo = @{
+//                                    
+//                                    (NSString *)kCGImageSourceCreateThumbnailFromImageAlways : @YES,
+//                                    
+//                                    (NSString *)kCGImageSourceThumbnailMaxPixelSize : [NSNumber numberWithInt:MAX(thumbnailWidth,thumbnailHeight)],
+//                                    
+//                                    (NSString *)kCGImageSourceCreateThumbnailWithTransform : @YES,
+//                                    
+//                                    };
 //    
-//    CGDataProviderRef dataProvider = CGImageGetDataProvider(imageRef);
-//    CGImageRelease(imageRef);
+//   CGBitmapInfo info = CGImageGetBitmapInfo(imageRef);
 //    
-//    CGImageSourceRef sourceref = CGImageSourceCreateWithDataProvider(dataProvider, NULL);
+//   size_t bits = CGImageGetBitsPerComponent(imageRef);
+//    
+//   size_t pixsBits = CGImageGetBitsPerPixel(imageRef);
+//   size_t bytesPerRow = CGImageGetBytesPerRow(imageRef);
+//    
+//    
+//    bool interpolate = CGImageGetShouldInterpolate(imageRef);
+//    
+//   CGColorRenderingIntent intent = CGImageGetRenderingIntent(imageRef);
+//    
+//   CGColorSpaceRef imageSpace= CGImageGetColorSpace(imageRef);
 ////
-//    imageRef = CGImageSourcec
-
+//    CGDataProviderRef dataProvider = CGImageGetDataProvider(imageRef);
+//    
+//   CGImageRef newImageRef = CGImageCreate(newSize.width, newSize.height, bits, pixsBits, bytesPerRow, imageSpace, info, dataProvider, CGImageGetDecode(imageRef), interpolate, intent);
+    //
+////
+//    CGImageSourceRef sourceref = CGImageSourceCreateWithDataProvider(dataProvider, NULL);
+//////
+//    imageRef = CGImageSourceCreateImageAtIndex(<#CGImageSourceRef  _Nonnull isrc#>, <#size_t index#>, <#CFDictionaryRef  _Nullable options#>)
+//
     
     UIGraphicsBeginImageContextWithOptions(newSize, NO, 0);
     CGContextRef context = UIGraphicsGetCurrentContext();
@@ -284,11 +329,13 @@ CGImageRef ImageWithScale(CGImageRef imageRef, float scale) {
     CGContextDrawImage(context, newRect, imageRef);
     
     // Get the resized image from the context and a UIImage
-    imageRef = CGBitmapContextCreateImage(context);
+   CGImageRef   newImageRef = CGBitmapContextCreateImage(context);
     UIGraphicsEndImageContext();
+    
+    CGImageRelease(imageRef);
     #endif
     
-    return imageRef;
+    return newImageRef;
 }
 
 #pragma mark - Properties

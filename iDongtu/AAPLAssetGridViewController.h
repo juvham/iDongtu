@@ -15,4 +15,6 @@ extern NSString *const assetGridViewController;
 @property (nonatomic, strong) PHFetchResult *assetsFetchResults;
 @property (nonatomic, strong) PHAssetCollection *assetCollection;
 
+@property (nonatomic ,assign) NSUInteger currentIndex;
+
 @end
