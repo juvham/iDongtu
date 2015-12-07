@@ -117,6 +117,8 @@
 		8F466A9D1C113B9500EFBB0C /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8F466A9E1C115A0600EFBB0C /* BaseNavigationViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BaseNavigationViewController.h; sourceTree = "<group>"; };
 		8F466A9F1C115A0600EFBB0C /* BaseNavigationViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BaseNavigationViewController.m; sourceTree = "<group>"; };
+		8F530E0E1C1579620061E712 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = "zh-Hans"; path = "zh-Hans.lproj/Storyboard.storyboard"; sourceTree = "<group>"; };
+		8F530E111C15796B0061E712 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = en; path = en.lproj/Storyboard.storyboard; sourceTree = "<group>"; };
 		8F891C001C0095F700A09B68 /* LDViewControllerTransitioner.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LDViewControllerTransitioner.h; sourceTree = "<group>"; };
 		8F891C011C0095F700A09B68 /* LDViewControllerTransitioner.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = LDViewControllerTransitioner.m; sourceTree = "<group>"; };
 		8FBD86321BF37EDC004A7D63 /* NSGIF+GifExist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSGIF+GifExist.h"; sourceTree = "<group>"; };
@@ -513,6 +515,8 @@
 			isa = PBXVariantGroup;
 			children = (
 				8F466A811C11355D00EFBB0C /* Base */,
+				8F530E0E1C1579620061E712 /* zh-Hans */,
+				8F530E111C15796B0061E712 /* en */,
 			);
 			name = Storyboard.storyboard;
 			sourceTree = "<group>";

@@ -6,7 +6,7 @@
         <capability name="Aspect ratio constraints" minToolsVersion="5.1"/>
     </dependencies>
     <scenes>
-        <!--Photos-->
+        <!--相册-->
         <scene sceneID="mUr-pn-Lqf">
             <objects>
                 <tableViewController id="Eg3-EV-Pfg" customClass="AAPLRootListViewController" sceneMemberID="viewController">
@@ -131,7 +131,7 @@
                             <outlet property="delegate" destination="Eg3-EV-Pfg" id="gGB-Gl-Ha4"/>
                         </connections>
                     </tableView>
-                    <navigationItem key="navigationItem" title="Photos" id="PHG-DW-u7x"/>
+                    <navigationItem key="navigationItem" title="相册" id="PHG-DW-u7x"/>
                 </tableViewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="CQO-Bv-5fk" userLabel="First Responder" sceneMemberID="firstResponder"/>
             </objects>
