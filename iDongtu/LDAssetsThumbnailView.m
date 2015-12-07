@@ -128,7 +128,7 @@
     
     if (_blankImage == nil) {
         
-        _blankImage = [UIImage imageNamed:@"alert_error_icon"];
+        _blankImage = [UIImage imageNamed:@"ico"];
     }
     
     return _blankImage;
