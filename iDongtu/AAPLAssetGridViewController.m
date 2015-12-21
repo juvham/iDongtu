@@ -39,9 +39,7 @@ static CGSize AssetGridThumbnailSize;
 - (void)awakeFromNib {
     self.imageManager = [[PHCachingImageManager alloc] init];
     [self resetCachedAssets];
-    
     [[PHPhotoLibrary sharedPhotoLibrary] registerChangeObserver:self];
-    
     [self addObserver:self forKeyPath:@"currentIndex" options:(NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld) context:NULL];
     
 }
@@ -96,11 +94,12 @@ static CGSize AssetGridThumbnailSize;
 	AssetGridThumbnailSize = CGSizeMake(cellSize.width * scale, cellSize.height * scale);
 
     // Add button to the navigation bar if the asset collection supports adding content.
-    if (!self.assetCollection || [self.assetCollection canPerformEditOperation:PHCollectionEditOperationAddContent]) {
-        self.navigationItem.rightBarButtonItem = self.addButton;
-    } else {
+//    if (!self.assetCollection || [self.assetCollection canPerformEditOperation:PHCollectionEditOperationAddContent]) {
+//        self.navigationItem.rightBarButtonItem = self.addButton;
+//    }
+//    else {
         self.navigationItem.rightBarButtonItem = nil;
-    }
+//    }
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -135,6 +134,7 @@ static CGSize AssetGridThumbnailSize;
             AAPLGridViewCell *cell = (AAPLGridViewCell *)sender;
             
             CGRect targetFrame = [self.collectionView convertRect:cell.frame toView:self.view.window];
+//                targetFrame.origin.y +=  ScreenHeight > ScreenWidth ? 64 : 30;
             
             self.naviTransDetegate.targetRect = targetFrame;
             

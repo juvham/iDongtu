@@ -144,6 +144,8 @@
             
             coverView.alpha = 0;
         }
+        
+        [containerView layoutIfNeeded];
 
         
     } completion:^(BOOL finished) {

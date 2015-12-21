@@ -8,12 +8,14 @@
 
 #import <Foundation/Foundation.h>
 @import Photos;
-@interface GifAssetHelper : NSObject
+@interface GifAssetHelper : PHCachingImageManager
 
 @property (nonatomic,strong) PHAssetCollection *assetCollection;
+@property (nonatomic,strong ,readonly) PHImageRequestOptions *requestOption;
 
 +(instancetype)sharedAssetHelper;
 
-+ (PHCachingImageManager *)sharedAssetmanager;
+- (void)startCachingImagesForAssets:(NSArray<PHAsset *> *)assets targetSize:(CGSize)targetSize contentMode:(PHImageContentMode)contentMode;
+- (void)stopCachingImagesForAssets:(NSArray<PHAsset *> *)assets targetSize:(CGSize)targetSize contentMode:(PHImageContentMode)contentMode;
 
 @end

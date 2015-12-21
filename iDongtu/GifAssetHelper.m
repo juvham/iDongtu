@@ -16,23 +16,25 @@
     dispatch_once(&onceToken, ^{
         
         _sharedHelper = [[GifAssetHelper alloc] init];
+        _sharedHelper -> _requestOption = [[PHImageRequestOptions alloc] init];
+//        _sharedHelper -> _requestOption.resizeMode = PHImageRequestOptionsResizeModeExact;
+        _sharedHelper -> _requestOption.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
+        _sharedHelper -> _requestOption.networkAccessAllowed = YES;
+        
     });
     
     return _sharedHelper;
 }
 
-+ (PHCachingImageManager *)sharedAssetmanager {
+- (void)startCachingImagesForAssets:(NSArray<PHAsset *> *)assets targetSize:(CGSize)targetSize contentMode:(PHImageContentMode)contentMode {
     
-    static PHCachingImageManager *_sharedManager;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        
-        _sharedManager = [[PHCachingImageManager alloc] init];
-    });
+    [self startCachingImagesForAssets:assets targetSize:targetSize contentMode:contentMode options:self.requestOption];
+}
+
+- (void)stopCachingImagesForAssets:(NSArray<PHAsset *> *)assets targetSize:(CGSize)targetSize contentMode:(PHImageContentMode)contentMode {
     
-    return _sharedManager;
-    
+    [self stopCachingImagesForAssets:assets targetSize:targetSize contentMode:contentMode options:self.requestOption];
 }
 
 
-@end
+@end;

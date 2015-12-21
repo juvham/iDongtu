@@ -76,29 +76,36 @@
     if (_assetsGroup != assetsGroup) {
         _assetsGroup = assetsGroup;
         // Extract three thumbnail images
-        NSIndexSet *indexes = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, MIN(3, assetsGroup.count))];
-        
+       
+        NSInteger count = MIN(3, assetsGroup.count);
+        NSIndexSet *indexes = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(assetsGroup.count - count,count)];
+    
         // Prepare group for firing completion block
-        dispatch_group_t imageQueue = dispatch_group_create();
+        __block dispatch_group_t imageQueue = dispatch_group_create();
         
         NSArray *array = [assetsGroup objectsAtIndexes:indexes];
         
-        PHImageRequestOptions *option = [[PHImageRequestOptions alloc] init];
-        option.resizeMode = PHImageRequestOptionsResizeModeExact;
-        
-        [[GifAssetHelper sharedAssetmanager] startCachingImagesForAssets:array targetSize:CGSizeMake(100, 100) contentMode:(PHImageContentModeAspectFit) options:option];
+        [[GifAssetHelper sharedAssetHelper] startCachingImagesForAssets:array targetSize:CGSizeMake(100, 100) contentMode:(PHImageContentModeAspectFit)];
         
         NSMutableArray *thumbnailImages = [NSMutableArray array];
         
         [array enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
             
             dispatch_group_enter(imageQueue);
-            PHAsset *asset = (PHAsset *)obj;
             
-            [[GifAssetHelper sharedAssetmanager] requestImageForAsset:asset targetSize:CGSizeMake(100, 100) contentMode:PHImageContentModeAspectFit options:option resultHandler:^(UIImage * _Nullable result, NSDictionary * _Nullable info) {
+                   NSLog(@"enter %lu", (unsigned long)idx);
+    
+            PHAsset *asset = (PHAsset *)obj;
+            [[GifAssetHelper sharedAssetHelper] requestImageForAsset:asset targetSize:CGSizeMake(100, 100) contentMode:PHImageContentModeAspectFit options:[GifAssetHelper sharedAssetHelper].requestOption resultHandler:^(UIImage * _Nullable result, NSDictionary * _Nullable info) {
                 
-                [thumbnailImages addObject:result];
+                if (result) {
+                    [thumbnailImages insertObject:result atIndex:0];
+                }
                 dispatch_group_leave(imageQueue);
+                
+                        NSLog(@"leave %lu", (unsigned long)idx);
+                
+            
             }];
         }];
         

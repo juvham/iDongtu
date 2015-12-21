@@ -12,7 +12,6 @@
 
 + (BOOL)gifExistWithGIFURL:(NSURL *)gifUrl;
 + (BOOL)gifExistWithURL:(NSURL *)url;
-
 + (NSURL *)gifURLWithURL:(NSURL *)url;
 
 @end

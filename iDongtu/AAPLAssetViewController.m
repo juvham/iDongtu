@@ -12,6 +12,7 @@
 #import "ShareViewController.h"
 #import "GifAssetHelper.h"
 #import "PageFullScreen.h"
+#import "YHFFConverter.h"
 @import PhotosUI;
 
 @interface AAPLAssetViewController () <PHPhotoLibraryChangeObserver, PHLivePhotoViewDelegate>
@@ -48,6 +49,7 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
         viewController.pageIndex = pageIndex;
         viewController.collectionDelegate = collectionDelegate;
         viewController.asset = [collectionDelegate.assetsFetchResults objectAtIndex:pageIndex];
+        [viewController cacheImage];
         return viewController;
     }
     
@@ -158,6 +160,11 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
     }
 }
 
+- (void)cacheImage {
+    
+    [[GifAssetHelper sharedAssetHelper] startCachingImagesForAssets:@[self.asset] targetSize:[self targetSize]  contentMode:PHImageContentModeAspectFit];
+}
+
 - (void)updateLiveImage {
     // Prepare the options to pass when fetching the live photo.
     PHLivePhotoRequestOptions *livePhotoOptions = [[PHLivePhotoRequestOptions alloc] init];
@@ -177,7 +184,7 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
     self.editButton.enabled = YES;
     
     // Request the live photo for the asset from the default PHImageManager.
-    [[PHImageManager defaultManager] requestLivePhotoForAsset:self.asset targetSize:[self targetSize] contentMode:PHImageContentModeAspectFit options:livePhotoOptions resultHandler:^(PHLivePhoto * _Nullable livePhoto, NSDictionary * _Nullable info) {
+    [[GifAssetHelper sharedAssetHelper] requestLivePhotoForAsset:self.asset targetSize:[self targetSize] contentMode:PHImageContentModeAspectFit options:livePhotoOptions resultHandler:^(PHLivePhoto * _Nullable livePhoto, NSDictionary * _Nullable info) {
         // Hide the progress view now the request has completed.
         weakSelf.progressView.hidden = YES;
         
@@ -231,7 +238,7 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
         self.editButton.enabled = NO;
     }
     
-    [[PHImageManager defaultManager] requestImageForAsset:self.asset targetSize:[self targetSize] contentMode:PHImageContentModeAspectFit options:options resultHandler:^(UIImage *result, NSDictionary *info) {
+    [[GifAssetHelper sharedAssetHelper] requestImageForAsset:self.asset targetSize:[self targetSize] contentMode:PHImageContentModeAspectFit options:options resultHandler:^(UIImage *result, NSDictionary *info) {
         // Hide the progress view now the request has completed.
         weakSelf.progressView.hidden = YES;
         
@@ -278,65 +285,88 @@ static NSString * const AdjustmentFormatIdentifier = @"com.example.apple-samplec
     });
 }
 
+- (BOOL)checkCurrentIsShow {
+    
+    PHAsset *asset = [self.collectionDelegate.assetsFetchResults objectAtIndex:self.collectionDelegate.currentIndex];
+    if ([asset isEqual:self.asset]) {
+        
+        return YES;
+    }
+    
+    return NO;
+    
+}
 #pragma mark - Target Action Methods.
 
 - (IBAction)handleEditButtonItem:(id)sender {
  
-    PHAssetMediaType type = self.asset.mediaType;
-    PHAssetMediaSubtype subtype = self.asset.mediaSubtypes;
-
     __weak typeof(self) weakSelf = self;
-    if (type == PHAssetMediaTypeVideo) {
+    
+    if (self.asset.mediaSubtypes & PHAssetMediaSubtypePhotoLive) {
+        
+        AVURLAsset *videoAsset = [self.livePhotoView.livePhoto valueForKey:@"videoAsset"];
+        
+        if ([JHConvertCache inputFileInCahce:videoAsset.URL.absoluteString]) {
+            
+        } else {
+            
+            [JHConvertCache cacheFileForKey:videoAsset.URL.absoluteString];
+            [YHFFConverter convertLivePhoto:self.livePhotoView.livePhoto completion:^(NSURL *gifURL) {
+               
+                [JHConvertCache removeCacheForKey:videoAsset.URL.absoluteString];
+                if ([weakSelf checkCurrentIsShow]) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [weakSelf performSegueWithIdentifier:shareViewControllerSegueID sender:gifURL];
+                        [weakSelf writeToAssetCollection:gifURL];
+                    });
+                }
+                
+            }];
+        }
+        
+    } else if (self.asset.mediaType & PHAssetMediaTypeVideo) {
         
         [[PHImageManager defaultManager] requestAVAssetForVideo:self.asset options:nil resultHandler:^(AVAsset *avAsset, AVAudioMix *audioMix, NSDictionary *info) {
             
             AVURLAsset *urlAsset = (AVURLAsset *)avAsset;
             
+            
+            
             if ([avAsset isKindOfClass:[AVURLAsset class]]) {
                 
-                [NSGIF createGIFfromURL:urlAsset.URL withFrameCount:60 delayTime:3/30.0 loopCount:0 gifSize:(GIFSizeVeryLow) completion:^(NSURL *GifURL) {
+                if ([JHConvertCache inputFileInCahce:urlAsset.URL.absoluteString]) {
                     
+                } else {
                     
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        [weakSelf performSegueWithIdentifier:shareViewControllerSegueID sender:GifURL];
-                        
-                        [weakSelf writeToAssetCollection:GifURL];
-                    });
+                    [JHConvertCache cacheFileForKey:urlAsset.URL.absoluteString];
                     
-                }];
+                    [YHFFConverter convertMovieWithURL:urlAsset.URL withStart:0 completeBlock:^(NSURL *gifURL) {
+                        [JHConvertCache removeCacheForKey:urlAsset.URL.absoluteString];
+                        if ([weakSelf checkCurrentIsShow]) {
+                            
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                [weakSelf performSegueWithIdentifier:shareViewControllerSegueID sender:gifURL];
+                                
+                                [weakSelf writeToAssetCollection:gifURL];
+                            });
+                        }
+                    }];
+                }
             } else {
                 
                 dispatch_async(dispatch_get_main_queue(), ^{
-                     weakSelf.parentViewController.navigationItem.prompt = @"慢动作视屏无法导出";
+                    
+                    weakSelf.parentViewController.navigationItem.prompt = @"视频文件获取失败";
                 });
-               
+                
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                     weakSelf.parentViewController.navigationItem.prompt = nil;
                     
                 });
-            }
-            //
-
-   
-        }];
-
-    } else if (type == PHAssetMediaTypeImage) {
-        
-        if (subtype == PHAssetMediaSubtypePhotoLive) {
-            
-            [NSGIF createGIFfromLivePhoto:self.livePhotoView.livePhoto framesPerSecond:30 completion:^(NSURL *GifURL) {
-            
-                [weakSelf performSegueWithIdentifier:shareViewControllerSegueID sender:GifURL];
                 
-                [weakSelf writeToAssetCollection:GifURL];
-            }];
-            
-        } else {
-            
-        }
-        
+            }
+        }];
     }
-
 }
 - (void)writeToAssetCollection:(NSURL *)url {
     
