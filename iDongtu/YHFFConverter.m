@@ -294,7 +294,7 @@ static dispatch_queue_t shareConvertGifQueue;
 - (void)platten {
     
     NSString *plattePath = [NSFileManager plattePathWithInputFilePath:self.inputFilePath];
-    NSString *commandLine = [NSString stringWithFormat:@"ffmpeg -v warning -ss %f -t %f -i %@ -vf fps=15,scale=%f:-1:flags=lanczos,palettegen=stats_mode=diff -y %@",self.startTime,self.duration,self.inputFilePath,self.scale,plattePath];
+    NSString *commandLine = [NSString stringWithFormat:@"ffmpeg -v warning   -ss %f -t %f -i %@ -vf   \"fps=15,scale=%f:-1:flags=lanczos,palettegen=stats_mode=diff\" -y %@",self.startTime,self.duration,self.inputFilePath,self.scale,plattePath];
     [self commandline:commandLine];
     self.palettePath = plattePath;
     
@@ -302,40 +302,138 @@ static dispatch_queue_t shareConvertGifQueue;
 
 - (void)convert {
     
-    NSString *commandLine = [NSString stringWithFormat:@"ffmpeg -v warning -ss %f -t %f -i %@ -i %@ -lavfi fps=15,scale=%f:-1:flags=lanczos,paletteuse=dither=sierra2_4a -y %@",self.startTime,self.duration,self.inputFilePath,self.palettePath,self.scale,self.outputFilePath];
+    NSString *commandLine = [NSString stringWithFormat:@"ffmpeg -v warning -ss %f -t %f -i %@ -i  %@   -lavfi \"fps=15,scale=%f:-1:flags=lanczos [x];[x][1:v] paletteuse=dither=sierra2_4a\" -y %@",self.startTime,self.duration,self.inputFilePath,self.palettePath,self.scale,self.outputFilePath];
+    
+//    getopt(<#int#>, <#char *const *#>, <#const char *#>)
     
     [self commandline:commandLine];
 
 }
 
 - (int)commandline:(NSString *)commandString {
-    
-    NSArray *argv_array=[commandString componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-    
-    NSMutableArray *arv_copy = [argv_array mutableCopy];
-    
-//    for (NSString *string in argv_array) {
-//        
-//        NSString *abString = [string stringByReplacingOccurrencesOfString:@" " withString:@""];
-//        if (abString.length == 0) {
-//            [arv_copy removeObjectAtIndex:[argv_array indexOfObject:string]];
-//        }
-//    }
-    int argc = (int)arv_copy.count;
-    char** argv=(char**)malloc(sizeof(char*)*argc);
-    for(int i=0;i<argc;i++)
-    {
-        argv[i]=(char*)malloc(sizeof(char)*1024);
-        strcpy(argv[i],[[arv_copy objectAtIndex:i] UTF8String]);
-    }
-    
+
+    int argc;
+    char **argv = parse_argvs(commandString, &argc);
     int result = ffmpeg_main(argc, argv);
-    for(int i=0;i<argc;i++)
-        free(argv[i]);
-    free(argv);
-    
     return result;
 
+}
+#pragma mark - inline Function
+static inline char ** parse_argvs(const NSString  *cmd , int *argc)
+/*
+ * 将长串命令行按空格分割为字符串数组
+ */
+{
+    NSArray *arcArray = [cmd componentsSeparatedByString:@" "];
+    NSMutableArray *arcArray_copy = [arcArray mutableCopy];
+    [arcArray_copy removeObject:@""];
+    arcArray = [arcArray_copy copy];
+    
+    __block NSUInteger subStart = NSIntegerMax;
+    __block NSUInteger subEnd = NSIntegerMax;
+    
+    [arcArray_copy removeAllObjects];
+    [arcArray enumerateObjectsUsingBlock:^(NSString * _Nonnull string, NSUInteger idx, BOOL * _Nonnull stop) {
+        
+        if (subStart == NSNotFound) {
+            
+            //找到带引号字符串开头
+            if ([string hasPrefix:@"\""] ) {
+                subStart = idx;
+                if ([string hasSuffix:@"\""] ) {
+                    NSString *pString = [string stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\""]];
+                    
+                    if (pString.length == 0) {
+                        //一个字符串就一个引号 从下个字符串开始处理
+                        subStart ++;
+                        
+                    } else {
+                        //前后引号在同一个字符串
+                        [arcArray_copy addObject:pString];
+                        subStart = NSNotFound;
+                        subEnd = NSNotFound;
+                    }
+                }
+            } else {
+                //正常字符串
+                [arcArray_copy addObject:string];
+            }
+            
+        } else {
+            //开始处理子字符串了
+            
+            if ([string hasPrefix:@"\""] ) {
+                //arcArray_copy
+                
+                if ([string hasSuffix:@"\""]) {
+                    //一个字符串就一个引号
+                    NSString *pString = [string stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\""]];
+                    
+                    if (pString.length == 0) {
+                        //一个字符串就一个引号 从上个字符串开始处理
+                        subEnd = idx - 1;
+                        NSIndexSet *indexSet = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(subStart, (subEnd-subStart) + 1)];
+                        NSArray *subArray = [arcArray objectsAtIndexes:indexSet];
+                        NSString *pString = [subArray componentsJoinedByString:@" "];
+                        pString = [pString stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\""]];
+                        [arcArray_copy addObject:pString];
+                        subStart = NSNotFound;
+                        subEnd = NSNotFound;
+                        
+                    } else {
+                      //引号不配对
+                        *stop = YES;
+                    }
+                    
+                } else {
+                    //引号不配对
+                    *stop = YES;
+                }
+                if (*stop) {
+                    [arcArray_copy removeAllObjects];
+                }
+
+            } else if ([string hasSuffix:@"\""]) {
+                
+                //找到带引号字符串结尾
+                subEnd = idx;
+                //有引号字符串开头
+                    //在同一个字符串
+                    if (subEnd == subStart) {
+                        //去掉引号
+                        //这种情况在上面处理掉了
+                    } else if (subEnd > subStart) {
+                        //在不同字符串
+                        NSIndexSet *indexSet = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(subStart, (subEnd-subStart) +1)];
+                        NSArray *subArray = [arcArray objectsAtIndexes:indexSet];
+                        NSString *pString = [subArray componentsJoinedByString:@" "];
+                        pString = [pString stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\""]];
+                        [arcArray_copy addObject:pString];
+
+                    } else {
+                        
+                        //经过上次的判断这种情况不应当出现
+                    }
+                // 处理完成 重置 继续下面的处理
+                subStart = NSNotFound;
+                subEnd = NSNotFound;
+            }
+        }
+    }];
+    
+    NSLog(@"%@",arcArray_copy);
+    
+    *argc = (int)arcArray_copy.count;
+
+    char **argvs = (char**)malloc(sizeof(char*)*arcArray_copy.count);
+//    *argv=
+    for(int i=0;i< arcArray_copy.count;i++)
+    {
+        const char *str = [[arcArray_copy objectAtIndex:i] UTF8String];
+        argvs[i]=(char*)malloc(sizeof(char)*strlen(str));
+        strcpy(argvs[i],str);
+    }
+    return argvs;
 }
 
 @end

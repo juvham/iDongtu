@@ -62,6 +62,7 @@
 		8FD5974B1C23EBCA00C13132 /* ffmpeg_opt.c in Sources */ = {isa = PBXBuildFile; fileRef = 8FD597451C23EBCA00C13132 /* ffmpeg_opt.c */; };
 		8FD5974C1C23EBCA00C13132 /* ffmpeg.c in Sources */ = {isa = PBXBuildFile; fileRef = 8FD597461C23EBCA00C13132 /* ffmpeg.c */; };
 		8FD5974F1C23FAF000C13132 /* libavresample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8FD5974E1C23FAF000C13132 /* libavresample.a */; };
+		8FD597541C2801D300C13132 /* getopt.c in Sources */ = {isa = PBXBuildFile; fileRef = 8FD597531C2801D300C13132 /* getopt.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -275,6 +276,7 @@
 		8FD5974E1C23FAF000C13132 /* libavresample.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libavresample.a; sourceTree = "<group>"; };
 		8FD597511C23FB6900C13132 /* avresample.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = avresample.h; sourceTree = "<group>"; };
 		8FD597521C23FB6900C13132 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
+		8FD597531C2801D300C13132 /* getopt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getopt.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -499,6 +501,7 @@
 			isa = PBXGroup;
 			children = (
 				8FD597401C23EBCA00C13132 /* cmdutils_common_opts.h */,
+				8FD597531C2801D300C13132 /* getopt.c */,
 				8FD597411C23EBCA00C13132 /* cmdutils.c */,
 				8FD597421C23EBCA00C13132 /* cmdutils.h */,
 				8FD597431C23EBCA00C13132 /* config.h */,
@@ -832,6 +835,7 @@
 				8FD5974B1C23EBCA00C13132 /* ffmpeg_opt.c in Sources */,
 				8F1CB2A61BF3035E006378F0 /* NSGIF+livePhoto.m in Sources */,
 				8F1CB2571BF2FFD4006378F0 /* iDongtu.xcdatamodeld in Sources */,
+				8FD597541C2801D300C13132 /* getopt.c in Sources */,
 				8FCE9E8E1C0729F100176AD1 /* PageFullScreen.m in Sources */,
 				8F466AA01C115A0600EFBB0C /* BaseNavigationViewController.m in Sources */,
 				8F1CB2B01BF30380006378F0 /* AAPLAssetGridViewController.m in Sources */,
